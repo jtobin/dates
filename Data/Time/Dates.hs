@@ -9,6 +9,7 @@
 -- type signatures from Integer to Int.
 
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Data.Time.Dates (
     Day(..)
@@ -23,7 +24,11 @@ module Data.Time.Dates (
   ) where
 
 import Control.DeepSeq
+import Control.Monad
 import Data.Typeable
+import qualified Data.Time as Time
+import Test.QuickCheck
+import Test.QuickCheck.All (forAllProperties)
 
 -- Data ------------------------------------------------------------------------
 
@@ -85,6 +90,85 @@ addGregorianYearsClip n = addGregorianMonthsClip (n * 12)
 
 addGregorianYearsRollOver :: Int -> Day -> Day
 addGregorianYearsRollOver n = addGregorianMonthsRollOver (n * 12)
+
+-- Tests -----------------------------------------------------------------------
+
+instance Arbitrary Day where
+  arbitrary = fmap ModifiedJulianDay (choose (1900, 2000000) :: Gen Int)
+
+instance Arbitrary Time.Day where
+  arbitrary = fmap Time.ModifiedJulianDay 
+                (choose (1900, 2000000) :: Gen Integer)
+
+newtype Small = Small { getInt :: Int } deriving Show
+
+instance Arbitrary Small where
+  arbitrary = fmap Small (choose (1900, 2000000) :: Gen Int)
+
+baseDate :: Day
+baseDate = fromGregorian 2013 6 23
+
+altBaseDate :: Time.Day
+altBaseDate = Time.fromGregorian 2013 6 23
+
+prop_addDaysEquivalence :: Small -> Bool
+prop_addDaysEquivalence (Small n) = 
+     (\(a, b, c) -> (fromIntegral a, b, c)) 
+       (Time.toGregorian (Time.addDays (fromIntegral n) altBaseDate))
+  == toGregorian (addDays n baseDate)
+
+prop_diffDaysEquivalence :: Day -> Day -> Bool
+prop_diffDaysEquivalence day0 day1 = 
+     diffDays day0 day1
+  == let (y0, m0, d0) = toGregorian day0
+         (y1, m1, d1) = toGregorian day1
+
+         day0n = Time.fromGregorian (fromIntegral y0) m0 d0
+         day1n = Time.fromGregorian (fromIntegral y1) m1 d1
+
+     in  fromIntegral $ Time.diffDays day0n day1n
+
+prop_gregorianEquivalence :: Day -> Bool
+prop_gregorianEquivalence d = 
+  let (y0, m0, d0) = toGregorian d
+      dAlt         = Time.fromGregorian (fromIntegral y0) m0 d0
+      (y1, m1, d1) = Time.toGregorian dAlt
+  in  (fromIntegral y0 == fromIntegral y1) && m0 == m1 && d0 == d1
+
+prop_addGregorianMonthsClipEquivalence :: Small -> Bool
+prop_addGregorianMonthsClipEquivalence (Small n) =
+  let d            = addGregorianMonthsClip n baseDate
+      (y0, m0, d0) = toGregorian d
+      dAlt         = Time.fromGregorian (fromIntegral y0) m0 d0
+  in  dAlt == Time.addGregorianMonthsClip (fromIntegral n) altBaseDate
+
+prop_addGregorianMonthsRollOverEquivalence :: Small -> Bool
+prop_addGregorianMonthsRollOverEquivalence (Small n) =
+  let d            = addGregorianMonthsRollOver n baseDate
+      (y0, m0, d0) = toGregorian d
+      dAlt         = Time.fromGregorian (fromIntegral y0) m0 d0
+  in  dAlt == Time.addGregorianMonthsRollOver (fromIntegral n) altBaseDate
+
+prop_addGregorianYearsClipEquivalence :: Small -> Bool
+prop_addGregorianYearsClipEquivalence (Small n) =
+  let d            = addGregorianYearsClip n baseDate
+      (y0, m0, d0) = toGregorian d
+      dAlt         = Time.fromGregorian (fromIntegral y0) m0 d0
+  in  dAlt == Time.addGregorianYearsClip (fromIntegral n) altBaseDate
+
+prop_addGregorianYearsRollOverEquivalence :: Small -> Bool
+prop_addGregorianYearsRollOverEquivalence (Small n) =
+  let d            = addGregorianYearsRollOver n baseDate
+      (y0, m0, d0) = toGregorian d
+      dAlt         = Time.fromGregorian (fromIntegral y0) m0 d0
+  in  dAlt == Time.addGregorianYearsRollOver (fromIntegral n) altBaseDate
+
+runTestSuite :: IO Bool
+runTestSuite = $forAllProperties 
+                 (quickCheckWithResult (stdArgs { maxSuccess = 1000 }))
+
+main :: IO ()
+main = void runTestSuite
 
 -- Internal --------------------------------------------------------------------
 
