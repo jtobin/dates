@@ -10,6 +10,7 @@
 
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE BangPatterns #-}
 
 module Data.Time.Dates (
     Day(..)
@@ -60,6 +61,8 @@ instance Enum Day where
 
 instance Show Day where
   show = showGregorian
+
+data StrictPair = SP {-# UNPACK #-} !Int {-# UNPACK #-} !Int
 
 -- Exported functions ----------------------------------------------------------
 
@@ -183,6 +186,9 @@ prop_addGregorianYearsRollOverEquivalence (Small n) =
       dAlt         = Time.fromGregorian (fromIntegral y0) m0 d0
   in  dAlt == Time.addGregorianYearsRollOver (fromIntegral n) altBaseDate
 
+prop_findMonthEquivalence :: [Int] -> Int -> Bool
+prop_findMonthEquivalence ns y = findMonthDay ns y == oldFindMonthDay ns y
+
 runTestSuite :: IO Bool
 runTestSuite = $forAllProperties 
                  (quickCheckWithResult (stdArgs { maxSuccess = 1000 }))
@@ -219,10 +225,19 @@ dayOfYearToMonthAndDay isLeap yd =
 {-# INLINE dayOfYearToMonthAndDay #-}
 
 findMonthDay :: [Int] -> Int -> (Int, Int)
-findMonthDay (n:ns) yd | yd > n = (\(m, d) -> (m + 1, d)) 
-                                    (findMonthDay ns (yd - n))
-findMonthDay _ yd               = (1, yd)
+findMonthDay ns yd = go ns (SP 1 yd)
+  where 
+    go :: [Int] -> StrictPair -> (Int, Int)
+    go []     !acc@(SP !a0 !a1) = (a0, a1)
+    go (m:ms) !acc@(SP !a0 !a1) | a1 > m    = go ms (SP (succ a0) (a1 - m))
+                                | otherwise = go [] acc
 {-# INLINE findMonthDay #-}
+
+oldFindMonthDay :: [Int] -> Int -> (Int, Int)
+oldFindMonthDay (n:ns) yd | yd > n = (\(m, d) -> (m + 1, d)) 
+                                       (oldFindMonthDay ns (yd - n))
+oldFindMonthDay _ yd               = (1, yd)
+
 
 monthLengths :: Bool -> [Int]
 monthLengths isleap = 
