@@ -34,8 +34,8 @@ import Test.QuickCheck.All (forAllProperties)
 
 -- Data ------------------------------------------------------------------------
 
-newtype Day = ModifiedJulianDay { 
-  toModifiedJulianDay :: Int 
+data Day = ModifiedJulianDay { 
+    toModifiedJulianDay :: {-# UNPACK #-} !Int 
   } deriving (Eq, Ord, Typeable)
 
 instance NFData Day where
