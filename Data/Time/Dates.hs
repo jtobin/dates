@@ -65,41 +65,51 @@ instance Show Day where
 
 addDays :: Int -> Day -> Day
 addDays n (ModifiedJulianDay d) = ModifiedJulianDay (d + n)
+{-# INLINE addDays #-}
 
 diffDays :: Day -> Day -> Int
 diffDays (ModifiedJulianDay a) (ModifiedJulianDay b) = a - b
+{-# INLINE diffDays #-}
 
 toGregorian :: Day -> (Int, Int, Int)
 toGregorian date = (year, month, day) 
   where (year,  yd)  = toOrdinalDate date
         (month, day) = dayOfYearToMonthAndDay (isLeapYear year) yd
+{-# INLINE toGregorian #-}
 
 fromGregorian :: Int -> Int -> Int -> Day
 fromGregorian year month day = 
   fromOrdinalDate year (monthAndDayToDayOfYear (isLeapYear year) month day)
+{-# INLINE fromGregorian #-}
 
 addGregorianMonthsClip :: Int -> Day -> Day
 addGregorianMonthsClip n day = fromGregorian y m d where
  (y,m,d) = addGregorianMonths n day
+{-# INLINE addGregorianMonthsClip #-}
 
 addGregorianMonthsRollOver :: Int -> Day -> Day
 addGregorianMonthsRollOver n day = addDays (d - 1) 
                                            (fromGregorian y m 1) where
   (y,m,d) = addGregorianMonths n day
+{-# INLINE addGregorianMonthsRollOver #-}
 
 addGregorianYearsClip :: Int -> Day -> Day
 addGregorianYearsClip n = addGregorianMonthsClip (n * 12)
+{-# INLINE addGregorianYearsClip #-}
 
 addGregorianYearsRollOver :: Int -> Day -> Day
 addGregorianYearsRollOver n = addGregorianMonthsRollOver (n * 12)
+{-# INLINE addGregorianYearsRollOver #-}
 
 dataTimeDayToDay :: Time.Day -> Day
 dataTimeDayToDay d = let (y0, m0, d0) = Time.toGregorian d
                      in  fromGregorian (fromIntegral y0) m0 d0
+{-# INLINE dataTimeDayToDay #-}
 
 dayToDataTimeDay :: Day -> Time.Day
 dayToDataTimeDay d = let (y0, m0, d0) = toGregorian d
                      in  Time.fromGregorian (fromIntegral y0) m0 d0
+{-# INLINE dayToDataTimeDay #-}
 
 -- Tests -----------------------------------------------------------------------
 
@@ -185,30 +195,34 @@ main = void runTestSuite
 type NumericPadOption = Maybe Char
 
 isLeapYear :: Int -> Bool
-isLeapYear year =  (mod year 4   == 0) 
-               && ((mod year 400 == 0) || not (mod year 100 == 0))
+isLeapYear year =  (rem year 4   == 0) 
+               && ((rem year 400 == 0) || not (rem year 100 == 0))
+{-# INLINE isLeapYear #-}
 
 toOrdinalDate :: Day -> (Int, Int)
 toOrdinalDate (ModifiedJulianDay mjd) = (year, yd) 
   where a        = mjd + 678575
         quadcent = div a 146097
-        b        = mod a 146097
+        b        = rem a 146097
         cent     = min (div b 36524) 3
         c        = b - (cent * 36524)
         quad     = div c 1461
-        d        = mod c 1461
+        d        = rem c 1461
         y        = min (div d 365) 3
         yd       = (d - (y * 365) + 1)
         year     = quadcent * 400 + cent * 100 + quad * 4 + y + 1
+{-# INLINE toOrdinalDate #-}
 
 dayOfYearToMonthAndDay :: Bool -> Int -> (Int, Int)
 dayOfYearToMonthAndDay isLeap yd = 
   findMonthDay (monthLengths isLeap) (clip 1 (if isLeap then 366 else 365) yd)
+{-# INLINE dayOfYearToMonthAndDay #-}
 
 findMonthDay :: [Int] -> Int -> (Int, Int)
 findMonthDay (n:ns) yd | yd > n = (\(m, d) -> (m + 1, d)) 
                                     (findMonthDay ns (yd - n))
 findMonthDay _ yd               = (1, yd)
+{-# INLINE findMonthDay #-}
 
 monthLengths :: Bool -> [Int]
 monthLengths isleap = 
@@ -225,6 +239,7 @@ fromOrdinalDate year day = ModifiedJulianDay mjd where
   y   = year - 1
   mjd = (clip 1 (if isLeapYear year then 366 else 365) day) 
           + (365 * y) + (div y 4) - (div y 100) + (div y 400) - 678576
+{-# INLINE fromOrdinalDate #-}
 
 monthAndDayToDayOfYear :: Bool -> Int -> Int -> Int
 monthAndDayToDayOfYear isLeap month day = 
@@ -233,12 +248,15 @@ monthAndDayToDayOfYear isLeap month day =
         day' = (clip 1 (monthLength' isLeap month') day)
         month'' = month'
         k = if month' <= 2 then 0 else if isLeap then -1 else -2
+{-# INLINE monthAndDayToDayOfYear #-}
 
 monthLength' :: Bool -> Int -> Int
 monthLength' isLeap month' = (monthLengths isLeap) !! (month' - 1)
+{-# INLINE monthLength' #-}
 
 rolloverMonths :: (Int, Int) -> (Int, Int)
-rolloverMonths (y,m) = (y + (div (m - 1) 12), (mod (m - 1) 12) + 1)
+rolloverMonths (y,m) = (y + (div (m - 1) 12), (rem (m - 1) 12) + 1)
+{-# INLINE rolloverMonths #-}
 
 addGregorianMonths :: Int -> Day -> (Int, Int, Int)
 addGregorianMonths n day = (y',m',d) where
@@ -266,8 +284,10 @@ showPaddedMin pl opt i | i < 0 = '-':(showPaddedMin pl opt (negate i))
 showPaddedMin pl (Just c) i =
   let s = show i in 
     padN (pl - (length s)) c s
+{-# INLINE showPaddedMin #-}
 
 padN :: Int -> Char -> String -> String
 padN i _ s | i <= 0 = s
 padN i c s = (replicate i c) ++ s
+{-# INLINE padN #-}
 
