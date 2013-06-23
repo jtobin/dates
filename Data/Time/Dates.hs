@@ -21,6 +21,8 @@ module Data.Time.Dates (
   , addGregorianMonthsRollOver
   , addGregorianYearsClip 
   , addGregorianYearsRollOver
+  , dataTimeDayToDay
+  , dayToDataTimeDay
   ) where
 
 import Control.DeepSeq
@@ -90,6 +92,14 @@ addGregorianYearsClip n = addGregorianMonthsClip (n * 12)
 
 addGregorianYearsRollOver :: Int -> Day -> Day
 addGregorianYearsRollOver n = addGregorianMonthsRollOver (n * 12)
+
+dataTimeDayToDay :: Time.Day -> Day
+dataTimeDayToDay d = let (y0, m0, d0) = Time.toGregorian d
+                     in  fromGregorian (fromIntegral y0) m0 d0
+
+dayToDataTimeDay :: Day -> Time.Day
+dayToDataTimeDay d = let (y0, m0, d0) = toGregorian d
+                     in  Time.fromGregorian (fromIntegral y0) m0 d0
 
 -- Tests -----------------------------------------------------------------------
 
